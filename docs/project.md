@@ -173,4 +173,3 @@ This architecture allows you to:
 - [Architecture Decisions](architecture.md)
 - [Test Results](test-results.md)
 - [Deployment Guide](deployment.md)
-

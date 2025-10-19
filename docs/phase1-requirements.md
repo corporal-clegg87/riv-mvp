@@ -60,19 +60,16 @@ describe('Performance Tests', () => {
 // tests/deployment/provider-compatibility.test.ts
 describe('Provider Compatibility Tests', () => {
   test('should work with Vercel deployment', async () => {
-    // Test Vercel-specific features
     const response = await fetch('/api/health');
     expect(response.status).toBe(200);
   });
 
   test('should work with Netlify deployment', async () => {
-    // Test Netlify-specific features
     const response = await fetch('/.netlify/functions/health');
     expect(response.status).toBe(200);
   });
 
   test('should work with Cloudflare Pages', async () => {
-    // Test Cloudflare-specific features
     const response = await fetch('/');
     expect(response.status).toBe(200);
   });
