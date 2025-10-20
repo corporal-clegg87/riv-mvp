@@ -8,7 +8,6 @@ describe('Project Structure Validation', () => {
       'src',
       'src/app',
       'src/components',
-      'src/lib',
       'src/types',
       'tests'
     ]

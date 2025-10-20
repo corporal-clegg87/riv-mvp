@@ -1,14 +1,20 @@
-/** @type {import('next').NextConfig} */
+/**
+ * Next.js configuration for RIV MVP
+ * @type {import('next').NextConfig}
+ */
 const nextConfig = {
-  experimental: {
-    appDir: true,
-  },
+  /**
+   * TypeScript configuration
+   * Type checking is handled by separate script for better performance
+   */
   typescript: {
-    // Type checking is handled by separate script
     ignoreBuildErrors: false,
   },
+  /**
+   * ESLint configuration
+   * ESLint checking is handled by separate script for better performance
+   */
   eslint: {
-    // ESLint checking is handled by separate script
     ignoreDuringBuilds: false,
   },
 }

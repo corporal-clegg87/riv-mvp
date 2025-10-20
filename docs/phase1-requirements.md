@@ -60,16 +60,19 @@ describe('Performance Tests', () => {
 // tests/deployment/provider-compatibility.test.ts
 describe('Provider Compatibility Tests', () => {
   test('should work with Vercel deployment', async () => {
+    // Test Vercel-specific API routes and serverless functions
     const response = await fetch('/api/health');
     expect(response.status).toBe(200);
   });
 
   test('should work with Netlify deployment', async () => {
+    // Test Netlify Functions and edge functions compatibility
     const response = await fetch('/.netlify/functions/health');
     expect(response.status).toBe(200);
   });
 
   test('should work with Cloudflare Pages', async () => {
+    // Test Cloudflare Pages static hosting and edge runtime
     const response = await fetch('/');
     expect(response.status).toBe(200);
   });
