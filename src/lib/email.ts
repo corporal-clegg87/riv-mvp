@@ -2,6 +2,7 @@ import nodemailer from 'nodemailer';
 import { isDevelopment, getRequiredEnvVar, getOptionalEnvVar } from './config';
 import { getSecret } from './secrets';
 import { logger } from './logger';
+import { renderOTPEmailTemplate } from './email-templates';
 
 export interface EmailConfig {
   host: string;
@@ -45,13 +46,19 @@ export class EmailService {
   private timeoutIds: Set<NodeJS.Timeout> = new Set();
   private abortControllers: Map<string, AbortController> = new Map();
   private cleanupInterval: NodeJS.Timeout | null = null;
-  private readonly RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
-  private readonly RATE_LIMIT_MAX = 5; // 5 emails per minute
-  private readonly MAX_RETRY_ATTEMPTS = 3;
-  private readonly RETRY_DELAY = 5000; // 5 seconds
+  private readonly RATE_LIMIT_WINDOW: number;
+  private readonly RATE_LIMIT_MAX: number;
+  private readonly MAX_RETRY_ATTEMPTS: number;
+  private readonly RETRY_DELAY: number;
   private initialized: boolean = false;
 
   constructor() {
+    // Initialize rate limiting configuration from environment variables
+    this.RATE_LIMIT_WINDOW = parseInt(getOptionalEnvVar('EMAIL_RATE_LIMIT_WINDOW_MS', '60000')); // 1 minute default
+    this.RATE_LIMIT_MAX = parseInt(getOptionalEnvVar('EMAIL_RATE_LIMIT_MAX', '5')); // 5 emails per window default
+    this.MAX_RETRY_ATTEMPTS = parseInt(getOptionalEnvVar('EMAIL_MAX_RETRY_ATTEMPTS', '3')); // 3 retries default
+    this.RETRY_DELAY = parseInt(getOptionalEnvVar('EMAIL_RETRY_DELAY_MS', '5000')); // 5 seconds default
+
     // Initialize config asynchronously
     this.initializeConfig().catch(error => {
       console.error('Failed to initialize email service:', error);
@@ -146,7 +153,10 @@ export class EmailService {
     }
 
     if (!this.initialized) {
-      throw new Error('Email service initialization timeout');
+      const errorContext = isDevelopment() 
+        ? 'Development mode initialization failed - check console for configuration errors'
+        : 'Production mode initialization failed - check Tencent Cloud credentials, SMTP configuration, and network connectivity';
+      throw new Error(`Email service initialization timeout after ${maxWaitTime}ms. ${errorContext}`);
     }
   }
 
@@ -263,14 +273,7 @@ export class EmailService {
   async sendOTPEmail(to: string, otp: string, identifier?: string): Promise<string> {
     const subject = 'Your RIV Login Code';
     const text = `Your login code is: ${otp}\n\nThis code will expire in 10 minutes.`;
-    const html = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2>Your RIV Login Code</h2>
-        <p>Your login code is: <strong style="font-size: 24px; color: #2563eb;">${otp}</strong></p>
-        <p>This code will expire in 10 minutes.</p>
-        <p>If you didn't request this code, please ignore this email.</p>
-      </div>
-    `;
+    const html = renderOTPEmailTemplate(otp);
 
     return this.sendEmail({ to, subject, text, html }, identifier);
   }

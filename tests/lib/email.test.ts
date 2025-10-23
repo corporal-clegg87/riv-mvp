@@ -114,8 +114,11 @@ describe('EmailService', () => {
         }, identifier);
       }
 
-      // Mock time passing
-      vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 61000); // 61 seconds later
+      // Use vi.advanceTimersByTime to advance time without affecting global state
+      vi.useFakeTimers();
+      const originalDateNow = Date.now;
+      const mockDateNow = vi.fn().mockReturnValue(originalDateNow() + 61000);
+      vi.spyOn(Date, 'now').mockImplementation(mockDateNow);
 
       // Should allow email after rate limit window
       await expect(emailService.sendEmail({
@@ -123,6 +126,10 @@ describe('EmailService', () => {
         subject: 'Test',
         text: 'Test'
       }, identifier)).resolves.not.toThrow();
+
+      // Restore original Date.now
+      vi.spyOn(Date, 'now').mockRestore();
+      vi.useRealTimers();
     });
   });
 

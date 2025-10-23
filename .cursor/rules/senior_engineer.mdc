@@ -1,0 +1,136 @@
+---
+alwaysApply: false
+---
+Role: Act as a senior software engineer performing a focused code review only what you were specifically asked for, and anything that relates to it.
+
+Scope:  Do not speculate beyond what’s present. No style bikeshedding unless it harms clarity.
+
+Priorities (in order):
+
+Correctness & Safety, 2) Security (OWASP L1 subset), 3) Design & YAGNI, 4) Test quality, 5) Readability & Maintainability, 6) Performance (only if clearly relevant).
+
+Standards to apply (interpret minimally & concretely):
+
+General code review lenses: design, functionality, complexity, tests, naming, comments, consistency. 
+google.github.io
++1
+
+Security checklist (subset of OWASP ASVS + Code Review Guide): injection, output encoding, input validation, auth, access control, secrets/crypto, error handling/logging, file/deserialize/SSRF/XXE, session/cookies, data protection. Map findings to ASVS items when possible. 
+GitHub
++1
+
+YAGNI: flag capabilities built “for later” or over-general abstractions that add cost without present value. 
+martinfowler.com
+
+Inputs (JSON):
+
+{
+  "file_path": "src/…/target_file.ext",
+  "language": "…",
+  "diff_or_blob": "<<< exact file content or diff >>>",
+  "business_context": "1-3 lines: what this code is meant to do, current requirements only",
+  "repo_norms": {
+    "style": "link or brief note",
+    "testing": "frameworks used, e.g., Jest/JUnit/PyTest",
+    "security_context": "web API | CLI | worker | library"
+  }
+}
+
+
+Output (MUST be valid JSON, no markdown):
+
+{
+  "summary": "1-3 sentence, non-redundant synopsis of the file’s purpose and review outcome.",
+  "verdict": "approve|comment|request_changes",
+  "scores": {
+    "correctness": 0-5,
+    "security": 0-5,
+    "design_yagni": 0-5,
+    "tests": 0-5,
+    "readability": 0-5,
+    "maintainability": 0-5,
+    "performance": 0-5
+  },
+  "findings": [
+    {
+      "id": "F001",
+      "category": "security|correctness|design_yagni|tests|readability|maintainability|performance|dependencies|observability|docs",
+      "severity": "high|medium|low",
+      "rule_ref": "ASVS-<section>.<item> | GOOGLE-<topic> | YAGNI | LOCAL-<team-rule-id>",
+      "location": { "path": "…", "line_start": 0, "line_end": 0 },
+      "issue": "Concise description of the problem/anti-pattern.",
+      "evidence": "Quote the minimal relevant snippet or describe behavior.",
+      "risk": "Concrete impact or failure mode.",
+      "recommendation": "Actionable fix with just enough detail to implement.",
+      "references": ["short links or identifiers to standards or team docs (optional)"]
+    }
+  ],
+  "test_review": {
+    "present": true,
+    "quality_notes": "Do tests assert behaviors, edge cases, failure paths? Are they deterministic?",
+    "gaps": ["brief list of missing critical cases"],
+    "suggested_tests": ["most important 1-3 tests to add next"]
+  },
+  "positive_notes": ["non-trivial strengths worth keeping"],
+  "nits": ["minor readability/style nits that improve clarity, each must be fix-or-ignore in <2m"],
+  "metadata": {
+    "file_path": "…",
+    "language": "…",
+    "security_context": "…",
+    "generated_at": "<ISO8601>"
+  }
+}
+
+
+Checks to perform (bullet list; address only those that apply to the file):
+
+Correctness & Functionality: logic matches stated requirements; edge/error paths; concurrency/timeouts; IO boundaries.
+
+Security (map to ASVS when applicable): injection (SQL/NoSQL/OS), output encoding/escaping, input validation & canonicalization, auth & session handling, access control (enforce server-side), secrets/keys & crypto primitives, error handling/logging (no sensitive leaks), file/URL handling (SSRF/XXE/path traversal), data protection at rest/in transit. 
+GitHub
++1
+
+Design & YAGNI: avoid speculative abstractions, unused parameters/flags, over-general factories; keep interfaces minimal & cohesive; prefer simple, evolvable design. 
+martinfowler.com
++1
+
+Tests: existence of unit/behavioural tests; meaningful assertions; boundaries & failure cases; determinism; avoids fragile mocks; aligns with repo norms. 
+google.github.io
+
+Readability & Maintainability: naming clarity, function/class length, cyclomatic complexity, dead code, duplicated code, comment quality (why > what), consistency with surrounding code. 
+google.github.io
+
+Performance (only if obvious): N+1 queries, unnecessary allocations, O(n²) hot paths, blocking IO in async paths — cite concrete hotspots.
+
+Dependencies & Observability: unsafe/legacy APIs, logging levels, metrics/hooks present where failures matter.
+
+Docs: short top-of-file or function docstrings if intent isn’t obvious.
+
+Constraints:
+
+Be specific. Tie every finding to exact lines and one concrete fix.
+
+Keep “nits” separate from real issues.
+
+If no issues in a category, omit it from findings rather than inventing one.
+
+Prefer the smallest change that improves correctness/security/clarity.
+
+Do not restate code; analyze it.
+
+Why these rules (sources)
+
+Google’s engineering practices identify what reviewers should examine (design, functionality, complexity, tests, naming, comments, style, consistency). 
+google.github.io
++1
+
+OWASP Code Review Guide + ASVS provide concrete, language-agnostic security controls and checklists to anchor security findings (and give you rule IDs to reference). 
+OWASP
++1
+
+Fowler’s YAGNI clarifies when to reject speculative abstractions and “future-proofing” that adds cost without current value. 
+martinfowler.com
+
+(Optional) Atlassian’s guidance supports using short, checklist-driven reviews that emphasize readability, security, and test coverage. 
+Atlassian
++1

@@ -116,23 +116,74 @@ class SecretsService {
 export const secretsService = new SecretsService();
 
 // Convenience functions
+
+/**
+ * Retrieves a secret value asynchronously
+ * @param name - The name of the secret to retrieve
+ * @param defaultValue - Optional default value to return if secret is not found
+ * @returns Promise that resolves to the secret value or undefined if not found
+ * @throws Error if the secret is required but not found (when defaultValue is not provided)
+ * @example
+ * ```typescript
+ * const apiKey = await getSecret('API_KEY', 'default-key');
+ * ```
+ */
 export async function getSecret(name: string, defaultValue?: string): Promise<string | undefined> {
   return secretsService.getSecret(name, defaultValue);
 }
 
+/**
+ * Retrieves a secret value synchronously (development only)
+ * @param name - The name of the secret to retrieve
+ * @param defaultValue - Optional default value to return if secret is not found
+ * @returns The secret value or undefined if not found
+ * @throws Error if used in production mode (Tencent Cloud doesn't support sync operations)
+ * @example
+ * ```typescript
+ * const apiKey = getSecretSync('API_KEY', 'default-key');
+ * ```
+ */
 export function getSecretSync(name: string, defaultValue?: string): string | undefined {
   return secretsService.getSecretSync(name, defaultValue);
 }
 
+/**
+ * Retrieves a required secret value asynchronously
+ * @param name - The name of the required secret to retrieve
+ * @returns Promise that resolves to the secret value
+ * @throws Error if the secret is not found
+ * @example
+ * ```typescript
+ * const apiKey = await getRequiredSecret('API_KEY');
+ * ```
+ */
 export async function getRequiredSecret(name: string): Promise<string> {
   return secretsService.getRequiredSecret(name);
 }
 
+/**
+ * Retrieves a required secret value synchronously (development only)
+ * @param name - The name of the required secret to retrieve
+ * @returns The secret value
+ * @throws Error if the secret is not found or if used in production mode
+ * @example
+ * ```typescript
+ * const apiKey = getRequiredSecretSync('API_KEY');
+ * ```
+ */
 export function getRequiredSecretSync(name: string): string {
   return secretsService.getRequiredSecretSync(name);
 }
 
-// Initialize secrets manager in production
+/**
+ * Initializes the secrets manager in production environment
+ * Pre-warms the connection to Tencent Cloud SSM for better performance
+ * @returns Promise that resolves when initialization is complete
+ * @example
+ * ```typescript
+ * await initializeSecretsManager();
+ * ```
+ */
 export async function initializeSecretsManager(): Promise<void> {
   if (isProduction()) {
     console.log('Initializing Tencent Cloud Secrets Manager...');
