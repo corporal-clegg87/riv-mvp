@@ -231,6 +231,27 @@ describe('config utilities', () => {
       expect(result.valid).toBe(true);
       expect(result.errors).toHaveLength(0);
     });
+
+    it('validates Tencent Cloud config in development when variables are set', () => {
+      vi.stubEnv('NODE_ENV', 'development');
+      vi.stubEnv('TENCENT_CLOUD_SECRET_ID', 'test-id');
+      // Don't set TENCENT_CLOUD_SECRET_KEY to test validation
+      
+      const result = getTencentCloudConfig();
+      expect(result.valid).toBe(false);
+      expect(result.errors).toContain('TENCENT_CLOUD_SECRET_KEY is required when using Tencent Cloud services');
+    });
+
+    it('validates Tencent Cloud config in development when SES variables are set', () => {
+      vi.stubEnv('NODE_ENV', 'development');
+      vi.stubEnv('TENCENT_SES_FROM_EMAIL', 'test@example.com');
+      vi.stubEnv('TENCENT_CLOUD_SECRET_ID', 'test-id');
+      // Don't set TENCENT_CLOUD_SECRET_KEY to test validation
+      
+      const result = validateRequiredEnvVars();
+      expect(result.valid).toBe(false);
+      expect(result.errors).toContain('TENCENT_CLOUD_SECRET_KEY is required when using Tencent Cloud services');
+    });
   });
 
 });

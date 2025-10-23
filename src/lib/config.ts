@@ -77,8 +77,16 @@ export function validateRequiredEnvVars(): { valid: boolean; errors: string[] } 
   const errors: string[] = [];
   
   try {
-    // Validate Tencent Cloud configuration for production
-    if (isProduction()) {
+    // Validate Tencent Cloud configuration if any Tencent Cloud env vars are set
+    // This ensures validation runs in development if devs have set these vars
+    const hasTencentCloudVars = getOptionalEnvVar('TENCENT_CLOUD_SECRET_ID') || 
+                                getOptionalEnvVar('TENCENT_CLOUD_SECRET_KEY') ||
+                                getOptionalEnvVar('TENCENT_CLOUD_REGION') ||
+                                getOptionalEnvVar('TENCENT_SES_FROM_EMAIL') ||
+                                getOptionalEnvVar('TENCENT_SES_SMTP_HOST') ||
+                                getOptionalEnvVar('TENCENT_SES_SMTP_PORT');
+    
+    if (hasTencentCloudVars || isProduction()) {
       const tencentConfig = getTencentCloudConfig();
       if (!tencentConfig.valid) {
         errors.push(...tencentConfig.errors);
@@ -116,31 +124,40 @@ export function validateRequiredEnvVars(): { valid: boolean; errors: string[] } 
 }
 
 /**
- * Validates Tencent Cloud configuration for production environment
+ * Validates Tencent Cloud configuration
  * @returns Object containing validation result and error messages
  */
 export function getTencentCloudConfig(): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
   
   try {
-    // Only validate in production environment
-    if (!isProduction()) {
-      return { valid: true, errors: [] };
-    }
-    
     const secretId = getOptionalEnvVar('TENCENT_CLOUD_SECRET_ID');
-    if (!secretId) {
-      errors.push('TENCENT_CLOUD_SECRET_ID is required in production');
-    }
-    
     const secretKey = getOptionalEnvVar('TENCENT_CLOUD_SECRET_KEY');
-    if (!secretKey) {
-      errors.push('TENCENT_CLOUD_SECRET_KEY is required in production');
+    const region = getOptionalEnvVar('TENCENT_CLOUD_REGION', 'ap-beijing');
+    
+    // If any Tencent Cloud credentials are set, validate them
+    if (secretId || secretKey || region !== 'ap-beijing') {
+      if (!secretId) {
+        errors.push('TENCENT_CLOUD_SECRET_ID is required when using Tencent Cloud services');
+      }
+      
+      if (!secretKey) {
+        errors.push('TENCENT_CLOUD_SECRET_KEY is required when using Tencent Cloud services');
+      }
+      
+      if (!region || !isValidTencentCloudRegion(region)) {
+        errors.push('TENCENT_CLOUD_REGION must be a valid Tencent Cloud region code');
+      }
     }
     
-    const region = getOptionalEnvVar('TENCENT_CLOUD_REGION', 'ap-beijing');
-    if (!region || !isValidTencentCloudRegion(region)) {
-      errors.push('TENCENT_CLOUD_REGION must be a valid Tencent Cloud region code');
+    // In production, these credentials are always required
+    if (isProduction() && (!secretId || !secretKey)) {
+      if (!secretId) {
+        errors.push('TENCENT_CLOUD_SECRET_ID is required in production');
+      }
+      if (!secretKey) {
+        errors.push('TENCENT_CLOUD_SECRET_KEY is required in production');
+      }
     }
     
     return {
