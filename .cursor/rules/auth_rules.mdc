@@ -1,0 +1,174 @@
+# Authentication Rules - RIV MVP
+
+## Auth Pattern: Stateless JWT with Email OTP (No Database)
+
+### Core Principles
+
+1. **No User Database** - System is stateless except for temporary OTP storage
+2. **Email-Only Authentication** - Any valid email can request OTP and login
+3. **JWT-Based Sessions** - Self-contained tokens, no server-side session storage
+4. **Protected File Access** - Only authenticated users can access files, but all users see all files
+
+### Token Strategy
+
+**Access Token:**
+- Duration: 15 minutes
+- Storage: localStorage (key: `authToken`)
+- Payload: `{ email: string, iat: number, exp: number }`
+- Usage: Include in all API requests via `Authorization: Bearer <token>`
+
+**Refresh Token:**
+- Duration: 7 days
+- Storage: localStorage (key: `refreshToken`)
+- Purpose: Obtain new access token without re-authentication
+- Auto-refresh when access token expires
+
+### OTP Flow
+
+1. **Request OTP** (`POST /api/auth/send-otp`)
+   - Input: `{ email: string }`
+   - Generates 6-digit code
+   - Stores in Redis/memory for 5 minutes
+   - Sends via Tencent Cloud SES
+   - Returns success (never reveal if email exists)
+
+2. **Verify OTP** (`POST /api/auth/verify-otp`)
+   - Input: `{ email: string, otp: string }`
+   - Validates OTP from Redis/memory
+   - Deletes OTP after verification (single-use)
+   - Returns JWT tokens on success
+
+3. **Validate Session** (`GET /api/auth/validate`)
+   - Requires: `Authorization: Bearer <token>` header
+   - Validates JWT signature + expiration
+   - Returns `{ success: true, email: string }` or 401
+
+4. **Refresh Session** (`POST /api/auth/refresh`)
+   - Input: `{ refreshToken: string }`
+   - Validates refresh token
+   - Issues new access + refresh token pair
+   - Returns new tokens or 401
+
+### Route Protection
+
+**Public Routes:**
+- `/api/auth/send-otp`
+- `/api/auth/verify-otp`
+
+**Protected Routes (require valid JWT):**
+- All `/api/files/*` endpoints
+- All `/api/upload/*` endpoints
+- Client-side: home page shows login form if no valid token
+
+**Middleware Implementation:**
+- Create `src/middleware.ts` for Next.js route protection
+- Validate JWT on all protected API routes
+- Return 401 for missing/invalid/expired tokens
+- No database lookups needed - JWT validation only
+
+### Security Rules
+
+1. **OTP Security:**
+   - 6-digit numeric code
+   - 5 minute expiration
+   - Single-use (delete after verification)
+   - Store in Redis with TTL (fallback: in-memory Map)
+
+2. **JWT Security:**
+   - Sign with strong secret (minimum 32 chars)
+   - Store secret in Tencent Cloud Secrets Manager (production)
+   - Use environment variables (development)
+   - Validate signature on every protected request
+   - No sensitive data in JWT payload (email only)
+
+3. **Token Storage:**
+   - localStorage (NOT cookies) - better for China/international
+   - Client clears on logout
+   - No httpOnly needed (stateless tokens)
+
+4. **Rate Limiting (Future):**
+   - Limit OTP requests per email (e.g., 3 per hour)
+   - Currently not implemented (MVP)
+
+### File Access Model
+
+- **Authentication Required:** All file operations need valid JWT
+- **No Authorization:** Once logged in, users see ALL files (no per-user ownership)
+- **No User Profiles:** System doesn't track who uploaded what (stateless)
+
+### Client-Side Behavior
+
+**On Page Load:**
+```typescript
+1. Check localStorage for authToken
+2. If exists → validate with GET /api/auth/validate
+3. If valid → show protected content
+4. If invalid/missing → show login form
+```
+
+**On API Call:**
+```typescript
+1. Include Authorization: Bearer ${authToken} header
+2. If 401 response → try refresh token
+3. If refresh succeeds → retry original request
+4. If refresh fails → clear localStorage, show login
+```
+
+**On Logout:**
+```typescript
+1. Clear localStorage.authToken
+2. Clear localStorage.refreshToken
+3. Redirect to login
+```
+
+### Environment Variables
+
+**Development (.env.local):**
+```
+TENCENT_SES_SMTP_HOST=smtp.tencentcloud.com
+TENCENT_SES_SMTP_PORT=587
+TENCENT_SES_USERNAME=your_username
+TENCENT_SES_PASSWORD=your_password
+TENCENT_SES_FROM_EMAIL=noreply@yourdomain.com
+JWT_SECRET=minimum_32_character_random_string
+REDIS_URL=redis://localhost:6379 (optional)
+NODE_ENV=development
+```
+
+**Production:**
+- Store all secrets in Tencent Cloud Secrets Manager
+- Use `TENCENT_SECRET_ID` and `TENCENT_SECRET_KEY` for Secrets Manager access
+- Never commit secrets to repository
+
+### Error Handling
+
+**401 Unauthorized:**
+- Missing/invalid/expired token
+- Client should attempt token refresh once
+- Then redirect to login if refresh fails
+
+**400 Bad Request:**
+- Invalid email format
+- Missing required fields
+- Invalid OTP format
+
+**500 Internal Server Error:**
+- Email sending failure (log but don't expose details)
+- Secrets Manager unavailable
+- Redis connection error (fallback to memory)
+
+### Testing Considerations
+
+- Mock Tencent SES in tests
+- Mock Redis with in-memory store
+- Test token expiration scenarios
+- Test refresh token flow
+- Verify JWT signature validation
+- Test protected route middleware
+
+---
+
+**Last Updated:** Oct 2025  
+**Auth Pattern:** Stateless JWT with Email OTP  
+**Primary Cloud Provider:** Tencent Cloud (SES)  
+**Target Users:** China + International
