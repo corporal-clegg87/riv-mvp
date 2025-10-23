@@ -5,20 +5,49 @@
 **Goal**: Create a simple web app that allows users to login with WeChat/email, view files on the server, upload new files, and refresh the file list.
 
 **Core Features**:
-- WeChat authentication (primary)
-- Email authentication (fallback)
+- Email OTP authentication (primary)
 - File viewing (list existing files)
 - File uploading (add new files)
 - Refresh button (reload file list)
 - Protected routes (login required)
 
+## 🔄 Authentication Strategy Decision
+
+### Why Email OTP Over WeChat?
+
+**Decision**: Email OTP authentication was chosen over WeChat OAuth for the following reasons:
+
+#### Technical Benefits
+- **Simpler Implementation**: No complex OAuth flows or third-party SDK dependencies
+- **Universal Access**: Works for both Chinese and international users
+- **Stateless Architecture**: JWT-based sessions reduce server complexity
+- **No External Dependencies**: No need for WeChat developer account or app approval
+
+#### User Experience Benefits
+- **Familiar Pattern**: Email OTP is widely understood globally
+- **No App Requirements**: Users don't need WeChat app installed
+- **Cross-Platform**: Works on any device with email access
+- **Privacy Friendly**: No social media account linking required
+
+#### Development Benefits
+- **Faster MVP**: Can be implemented in 2-3 days vs weeks for WeChat integration
+- **Easier Testing**: No need for WeChat test accounts or sandbox environments
+- **Better Debugging**: Clear error messages and logging for email delivery issues
+- **Tencent Cloud Integration**: Leverages existing Tencent SES service for China accessibility
+
+#### Future Considerations
+- WeChat integration can be added later as an additional authentication method
+- Email OTP provides a solid foundation for future auth enhancements
+- Maintains flexibility for international expansion
+
 ## 🏗️ Technical Architecture
 
 **Frontend**: Next.js 14 (App Router)
-**Authentication**: WeChat OAuth 2.0 + Email/Password
+**Authentication**: Email OTP with JWT tokens
 **File Storage**: Tencent Cloud COS (Cloud Object Storage)
 **Deployment**: Tencent Cloud (CloudBase/SCF)
-**Database**: Tencent Cloud MySQL (for user sessions)
+**Email Service**: Tencent Cloud SES
+**Session Storage**: Redis (for OTP) + localStorage (for JWT)
 
 ---
 

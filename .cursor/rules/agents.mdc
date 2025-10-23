@@ -2,4 +2,16 @@
 alwaysApply: true
 ---
 
-Never write code without a) Me telling you directly to do it b) checking out a new branch
+## Development Rules
+
+### Code Changes
+- **Never write code without explicit instruction** - Only implement when directly told to do so
+- **Always create a new branch** - Check out a new branch before making any code changes
+- **No hardcoded sensitive data** - Never hardcode auth strings, passwords, or personal information
+- **Test data prefixing** - If test data is needed, prefix with "test_" (e.g., "test_user@example.com")
+
+### Security Guidelines
+- Use environment variables for all sensitive configuration
+- Implement proper secret management for production
+- Follow the established authentication patterns in the codebase
+

@@ -1,36 +1,38 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { 
   isDevelopment, 
   isProduction, 
   getConfig, 
   getRequiredEnvVar, 
-  getOptionalEnvVar 
+  getOptionalEnvVar,
+  validateEnvVar,
+  validateRequiredEnvVars
 } from '../../src/lib/config';
 
 describe('config utilities', () => {
-  const originalEnv = process.env;
-
   beforeEach(() => {
-    // Reset environment
-    process.env = { ...originalEnv } as any;
+    // Clear all environment variable stubs
+    vi.unstubAllEnvs();
   });
 
   afterEach(() => {
-    process.env = originalEnv;
+    // Restore original environment
+    vi.unstubAllEnvs();
   });
 
   describe('environment detection', () => {
     it('isDevelopment returns true in development', () => {
-      Object.defineProperty(process.env, 'NODE_ENV', { value: 'development', writable: true });
+      vi.stubEnv('NODE_ENV', 'development');
       expect(isDevelopment()).toBe(true);
     });
 
     it('isProduction returns true in production', () => {
-      Object.defineProperty(process.env, 'NODE_ENV', { value: 'production', writable: true });
+      vi.stubEnv('NODE_ENV', 'production');
       expect(isProduction()).toBe(true);
     });
 
     it('defaults to development when NODE_ENV is not set', () => {
+      vi.unstubAllEnvs();
       delete (process.env as any).NODE_ENV;
       expect(isDevelopment()).toBe(true);
       expect(isProduction()).toBe(false);
@@ -39,9 +41,9 @@ describe('config utilities', () => {
 
   describe('getConfig', () => {
     it('returns correct values for development', () => {
-      Object.defineProperty(process.env, 'NODE_ENV', { value: 'development', writable: true });
-      process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000';
-      process.env.REDIS_URL = 'redis://localhost:6379';
+      vi.stubEnv('NODE_ENV', 'development');
+      vi.stubEnv('NEXT_PUBLIC_APP_URL', 'http://localhost:3000');
+      vi.stubEnv('REDIS_URL', 'redis://localhost:6379');
 
       const config = getConfig();
       expect(config.nodeEnv).toBe('development');
@@ -52,8 +54,8 @@ describe('config utilities', () => {
     });
 
     it('returns correct values for production', () => {
-      Object.defineProperty(process.env, 'NODE_ENV', { value: 'production', writable: true });
-      process.env.NEXT_PUBLIC_APP_URL = 'https://yourdomain.com';
+      vi.stubEnv('NODE_ENV', 'production');
+      vi.stubEnv('NEXT_PUBLIC_APP_URL', 'https://yourdomain.com');
 
       const config = getConfig();
       expect(config.nodeEnv).toBe('production');
@@ -63,7 +65,8 @@ describe('config utilities', () => {
     });
 
     it('uses default app URL when not set', () => {
-      delete process.env.NEXT_PUBLIC_APP_URL;
+      vi.unstubAllEnvs();
+      delete (process.env as any).NEXT_PUBLIC_APP_URL;
       const config = getConfig();
       expect(config.appUrl).toBe('http://localhost:3000');
     });
@@ -71,40 +74,106 @@ describe('config utilities', () => {
 
   describe('getRequiredEnvVar', () => {
     it('returns value when environment variable is set', () => {
-      process.env.TEST_VAR = 'test-value';
+      vi.stubEnv('TEST_VAR', 'test-value');
       expect(getRequiredEnvVar('TEST_VAR')).toBe('test-value');
     });
 
     it('throws error when environment variable is not set', () => {
-      delete process.env.TEST_VAR;
+      vi.unstubAllEnvs();
+      delete (process.env as any).TEST_VAR;
       expect(() => getRequiredEnvVar('TEST_VAR')).toThrow('Required environment variable TEST_VAR is not set');
     });
 
     it('throws error when environment variable is empty string', () => {
-      process.env.TEST_VAR = '';
+      vi.stubEnv('TEST_VAR', '');
       expect(() => getRequiredEnvVar('TEST_VAR')).toThrow('Required environment variable TEST_VAR is not set');
     });
   });
 
   describe('getOptionalEnvVar', () => {
     it('returns value when environment variable is set', () => {
-      process.env.TEST_VAR = 'test-value';
+      vi.stubEnv('TEST_VAR', 'test-value');
       expect(getOptionalEnvVar('TEST_VAR')).toBe('test-value');
     });
 
     it('returns undefined when environment variable is not set', () => {
-      delete process.env.TEST_VAR;
+      vi.unstubAllEnvs();
+      delete (process.env as any).TEST_VAR;
       expect(getOptionalEnvVar('TEST_VAR')).toBeUndefined();
     });
 
     it('returns default value when environment variable is not set', () => {
-      delete process.env.TEST_VAR;
+      vi.unstubAllEnvs();
+      delete (process.env as any).TEST_VAR;
       expect(getOptionalEnvVar('TEST_VAR', 'default-value')).toBe('default-value');
     });
 
     it('returns value when environment variable is set, ignoring default', () => {
-      process.env.TEST_VAR = 'test-value';
+      vi.stubEnv('TEST_VAR', 'test-value');
       expect(getOptionalEnvVar('TEST_VAR', 'default-value')).toBe('test-value');
+    });
+  });
+
+  describe('validateEnvVar', () => {
+    it('validates string type correctly', () => {
+      expect(validateEnvVar('TEST_VAR', 'valid-string', 'string')).toBe(true);
+      expect(validateEnvVar('TEST_VAR', '', 'string')).toBe(false);
+    });
+
+    it('validates number type correctly', () => {
+      expect(validateEnvVar('TEST_VAR', '123', 'number')).toBe(true);
+      expect(validateEnvVar('TEST_VAR', 'abc', 'number')).toBe(false);
+      expect(validateEnvVar('TEST_VAR', '12.34', 'number')).toBe(true);
+    });
+
+    it('validates boolean type correctly', () => {
+      expect(validateEnvVar('TEST_VAR', 'true', 'boolean')).toBe(true);
+      expect(validateEnvVar('TEST_VAR', 'false', 'boolean')).toBe(true);
+      expect(validateEnvVar('TEST_VAR', 'yes', 'boolean')).toBe(false);
+    });
+  });
+
+  describe('validateRequiredEnvVars', () => {
+    it('validates JWT secret length', () => {
+      vi.stubEnv('JWT_SECRET', 'short');
+      const result = validateRequiredEnvVars();
+      expect(result.valid).toBe(false);
+      expect(result.errors).toContain('JWT_SECRET must be at least 32 characters long');
+    });
+
+    it('validates email format', () => {
+      vi.stubEnv('TENCENT_SES_FROM_EMAIL', 'invalid-email');
+      const result = validateRequiredEnvVars();
+      expect(result.valid).toBe(false);
+      expect(result.errors).toContain('TENCENT_SES_FROM_EMAIL must be a valid email address');
+    });
+
+    it('validates port number', () => {
+      vi.stubEnv('TENCENT_SES_SMTP_PORT', 'not-a-number');
+      const result = validateRequiredEnvVars();
+      expect(result.valid).toBe(false);
+      expect(result.errors).toContain('TENCENT_SES_SMTP_PORT must be a valid number');
+    });
+
+    it('passes validation with valid environment variables', () => {
+      vi.stubEnv('JWT_SECRET', 'a'.repeat(32));
+      vi.stubEnv('TENCENT_SES_FROM_EMAIL', 'test@example.com');
+      vi.stubEnv('TENCENT_SES_SMTP_PORT', '587');
+      
+      const result = validateRequiredEnvVars();
+      expect(result.valid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+    });
+
+    it('handles missing environment variables gracefully', () => {
+      vi.unstubAllEnvs();
+      delete (process.env as any).JWT_SECRET;
+      delete (process.env as any).TENCENT_SES_FROM_EMAIL;
+      delete (process.env as any).TENCENT_SES_SMTP_PORT;
+      
+      const result = validateRequiredEnvVars();
+      expect(result.valid).toBe(true);
+      expect(result.errors).toHaveLength(0);
     });
   });
 });
