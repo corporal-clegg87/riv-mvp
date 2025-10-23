@@ -12,7 +12,7 @@ describe('config utilities', () => {
 
   beforeEach(() => {
     // Reset environment
-    process.env = { ...originalEnv };
+    process.env = { ...originalEnv } as any;
   });
 
   afterEach(() => {
@@ -21,17 +21,17 @@ describe('config utilities', () => {
 
   describe('environment detection', () => {
     it('isDevelopment returns true in development', () => {
-      process.env.NODE_ENV = 'development';
+      Object.defineProperty(process.env, 'NODE_ENV', { value: 'development', writable: true });
       expect(isDevelopment()).toBe(true);
     });
 
     it('isProduction returns true in production', () => {
-      process.env.NODE_ENV = 'production';
+      Object.defineProperty(process.env, 'NODE_ENV', { value: 'production', writable: true });
       expect(isProduction()).toBe(true);
     });
 
     it('defaults to development when NODE_ENV is not set', () => {
-      delete process.env.NODE_ENV;
+      delete (process.env as any).NODE_ENV;
       expect(isDevelopment()).toBe(true);
       expect(isProduction()).toBe(false);
     });
@@ -39,7 +39,7 @@ describe('config utilities', () => {
 
   describe('getConfig', () => {
     it('returns correct values for development', () => {
-      process.env.NODE_ENV = 'development';
+      Object.defineProperty(process.env, 'NODE_ENV', { value: 'development', writable: true });
       process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000';
       process.env.REDIS_URL = 'redis://localhost:6379';
 
@@ -52,7 +52,7 @@ describe('config utilities', () => {
     });
 
     it('returns correct values for production', () => {
-      process.env.NODE_ENV = 'production';
+      Object.defineProperty(process.env, 'NODE_ENV', { value: 'production', writable: true });
       process.env.NEXT_PUBLIC_APP_URL = 'https://yourdomain.com';
 
       const config = getConfig();
