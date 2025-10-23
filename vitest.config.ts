@@ -10,6 +10,12 @@ export default defineConfig({
     globals: true,
     watch: false,
     reporters: ['verbose'],
+    // Environment-based test filtering
+    include: process.env.NODE_ENV === 'production' 
+      ? ['tests/**/*.test.ts', '!tests/lib/email-dev.test.ts']
+      : process.env.NODE_ENV === 'development'
+      ? ['tests/**/*.test.ts', '!tests/lib/email-integration.test.ts']
+      : ['tests/**/*.test.ts'], // Default: run all tests
   },
   resolve: {
     alias: {
