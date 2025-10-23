@@ -1,13 +1,12 @@
-import { describe, test, expect, beforeEach, vi } from 'vitest';
-import { EmailService, sendEmail, sendOTPEmail, validateEmailConfig } from '../../src/lib/email';
+import { describe, test, expect, beforeEach, vi, afterEach } from 'vitest';
 import { isDevelopment, getOptionalEnvVar } from '../../src/lib/config';
 import { getSecret } from '../../src/lib/secrets';
 
-// Mock dependencies
+// Mock dependencies before importing EmailService
 vi.mock('../../src/lib/config', () => ({
-  isDevelopment: vi.fn(),
+  isDevelopment: vi.fn(() => true), // Default to development mode
   getRequiredEnvVar: vi.fn(),
-  getOptionalEnvVar: vi.fn()
+  getOptionalEnvVar: vi.fn((name: string, defaultValue?: string) => defaultValue)
 }));
 
 vi.mock('../../src/lib/secrets', () => ({
@@ -17,22 +16,32 @@ vi.mock('../../src/lib/secrets', () => ({
 vi.mock('nodemailer', () => ({
   default: {
     createTransport: vi.fn(() => ({
-      sendMail: vi.fn(),
-      verify: vi.fn()
+      sendMail: vi.fn().mockResolvedValue({ messageId: 'test-message-id' }),
+      verify: vi.fn().mockResolvedValue(true)
     }))
   },
   createTransport: vi.fn(() => ({
-    sendMail: vi.fn(),
-    verify: vi.fn()
+    sendMail: vi.fn().mockResolvedValue({ messageId: 'test-message-id' }),
+    verify: vi.fn().mockResolvedValue(true)
   }))
 }));
+
+// Import after mocking
+import { EmailService, sendEmail, sendOTPEmail, validateEmailConfig } from '../../src/lib/email';
 
 describe('EmailService', () => {
   let emailService: EmailService;
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // Reset to development mode by default
+    vi.mocked(isDevelopment).mockReturnValue(true);
+    vi.mocked(getOptionalEnvVar).mockImplementation((name: string, defaultValue?: string) => defaultValue);
     emailService = new EmailService();
+  });
+  
+  afterEach(() => {
+    emailService.cleanup();
   });
 
   describe('Development Mode', () => {
@@ -83,16 +92,20 @@ describe('EmailService', () => {
     });
 
     test('should enforce rate limit', async () => {
-      const identifier = 'test-identifier';
+      const identifier = 'test-rate-limit-enforced';
       
       // Send 5 emails (within limit)
+      const promises = [];
       for (let i = 0; i < 5; i++) {
-        await emailService.sendEmail({
+        promises.push(emailService.sendEmail({
           to: 'test@example.com',
           subject: 'Test',
           text: 'Test'
-        }, identifier);
+        }, identifier));
       }
+      
+      // Wait for all 5 to complete
+      await Promise.all(promises);
 
       // 6th email should be rate limited
       await expect(emailService.sendEmail({
@@ -135,6 +148,8 @@ describe('EmailService', () => {
 
   describe('Production Mode', () => {
     test('should validate email configuration', async () => {
+      const nodemailer = await import('nodemailer');
+      
       vi.mocked(isDevelopment).mockReturnValue(false);
       vi.mocked(getSecret).mockResolvedValue('test-secret');
       vi.mocked(getOptionalEnvVar).mockImplementation((name: string, defaultValue?: string) => {
@@ -146,19 +161,21 @@ describe('EmailService', () => {
       
       // Mock nodemailer transporter
       const mockTransporter = {
-        sendMail: vi.fn(),
+        sendMail: vi.fn().mockResolvedValue({ messageId: 'test-id' }),
         verify: vi.fn().mockResolvedValue(true)
       };
-      vi.mocked(require('nodemailer').createTransport).mockReturnValue(mockTransporter);
+      vi.mocked(nodemailer.createTransport).mockReturnValue(mockTransporter as any);
       
       // Create a fresh instance for production mode
       const prodEmailService = new EmailService();
       
-      // Wait for initialization to complete using the service's own mechanism
-      await prodEmailService.validateConfig();
+      // Wait for initialization to complete
+      await new Promise(resolve => setTimeout(resolve, 200));
       
       const result = await prodEmailService.validateConfig();
       expect(result).toBe(true);
+      
+      prodEmailService.cleanup();
     });
   });
 

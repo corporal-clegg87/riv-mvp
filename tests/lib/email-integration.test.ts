@@ -1,13 +1,12 @@
-import { describe, test, expect, beforeEach, vi } from 'vitest';
-import { EmailService, sendEmail, sendOTPEmail, getDeliveryStatus } from '../../src/lib/email';
+import { describe, test, expect, beforeEach, vi, afterEach } from 'vitest';
 import { isDevelopment, getOptionalEnvVar } from '../../src/lib/config';
 import { getSecret } from '../../src/lib/secrets';
 
-// Mock dependencies
+// Mock dependencies before importing EmailService
 vi.mock('../../src/lib/config', () => ({
-  isDevelopment: vi.fn(),
+  isDevelopment: vi.fn(() => true), // Default to development mode
   getRequiredEnvVar: vi.fn(),
-  getOptionalEnvVar: vi.fn()
+  getOptionalEnvVar: vi.fn((name: string, defaultValue?: string) => defaultValue)
 }));
 
 vi.mock('../../src/lib/secrets', () => ({
@@ -17,22 +16,32 @@ vi.mock('../../src/lib/secrets', () => ({
 vi.mock('nodemailer', () => ({
   default: {
     createTransport: vi.fn(() => ({
-      sendMail: vi.fn(),
-      verify: vi.fn()
+      sendMail: vi.fn().mockResolvedValue({ messageId: 'test-message-id' }),
+      verify: vi.fn().mockResolvedValue(true)
     }))
   },
   createTransport: vi.fn(() => ({
-    sendMail: vi.fn(),
-    verify: vi.fn()
+    sendMail: vi.fn().mockResolvedValue({ messageId: 'test-message-id' }),
+    verify: vi.fn().mockResolvedValue(true)
   }))
 }));
+
+// Import after mocking
+import { EmailService, sendEmail, sendOTPEmail, getDeliveryStatus } from '../../src/lib/email';
 
 describe('Email Service Integration Tests', () => {
   let emailService: EmailService;
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // Reset to development mode by default
+    vi.mocked(isDevelopment).mockReturnValue(true);
+    vi.mocked(getOptionalEnvVar).mockImplementation((name: string, defaultValue?: string) => defaultValue);
     emailService = new EmailService();
+  });
+  
+  afterEach(() => {
+    emailService.cleanup();
   });
 
   describe('Development Mode Integration', () => {
@@ -81,7 +90,17 @@ describe('Email Service Integration Tests', () => {
   });
 
   describe('Production Mode Integration', () => {
-    beforeEach(() => {
+    test('should handle successful email sending in production', async () => {
+      const nodemailer = await import('nodemailer');
+      
+      // Mock successful email sending
+      const mockSendMail = vi.fn().mockResolvedValue({ messageId: 'test-message-id' });
+      const mockTransporter = {
+        sendMail: mockSendMail,
+        verify: vi.fn().mockResolvedValue(true)
+      };
+      
+      // Set up mocks before creating service
       vi.mocked(isDevelopment).mockReturnValue(false);
       vi.mocked(getSecret).mockResolvedValue('test-secret');
       vi.mocked(getOptionalEnvVar).mockImplementation((name: string, defaultValue?: string) => {
@@ -90,19 +109,14 @@ describe('Email Service Integration Tests', () => {
         if (name === 'TENCENT_SES_FROM_EMAIL') return 'test@example.com';
         return defaultValue;
       });
-    });
+      vi.mocked(nodemailer.createTransport).mockImplementation(() => mockTransporter as any);
 
-    test('should handle successful email sending in production', async () => {
-      // Mock successful email sending
-      const mockSendMail = vi.fn().mockResolvedValue({ messageId: 'test-message-id' });
-      const mockTransporter = {
-        sendMail: mockSendMail,
-        verify: vi.fn().mockResolvedValue(true)
-      };
+      const prodEmailService = new EmailService();
       
-      vi.mocked(require('nodemailer').createTransport).mockReturnValue(mockTransporter);
+      // Wait for initialization to complete
+      await new Promise(resolve => setTimeout(resolve, 300));
 
-      const emailId = await emailService.sendEmail({
+      const emailId = await prodEmailService.sendEmail({
         to: 'test@example.com',
         subject: 'Production Test',
         text: 'This is a production test email'
@@ -118,25 +132,44 @@ describe('Email Service Integration Tests', () => {
       });
 
       // Check delivery status
-      const status = emailService.getDeliveryStatus(emailId);
+      const status = prodEmailService.getDeliveryStatus(emailId);
       expect(status?.status).toBe('sent');
+      
+      prodEmailService.cleanup();
     });
 
     test('should handle email sending failure with retry', async () => {
-      // Mock email sending failure
+      const nodemailer = await import('nodemailer');
+      
+      // Mock email sending failure - fail twice then succeed
       const mockSendMail = vi.fn()
         .mockRejectedValueOnce(new Error('SMTP connection failed'))
         .mockRejectedValueOnce(new Error('SMTP connection failed'))
-        .mockResolvedValue({ messageId: 'test-message-id' });
+        .mockResolvedValueOnce({ messageId: 'test-message-id' });
       
       const mockTransporter = {
         sendMail: mockSendMail,
         verify: vi.fn().mockResolvedValue(true)
       };
       
-      vi.mocked(require('nodemailer').createTransport).mockReturnValue(mockTransporter);
+      // Set up mocks before creating service
+      vi.mocked(isDevelopment).mockReturnValue(false);
+      vi.mocked(getSecret).mockResolvedValue('test-secret');
+      vi.mocked(getOptionalEnvVar).mockImplementation((name: string, defaultValue?: string) => {
+        if (name === 'TENCENT_SES_SMTP_HOST') return 'smtp.tencentcloud.com';
+        if (name === 'TENCENT_SES_SMTP_PORT') return '587';
+        if (name === 'TENCENT_SES_FROM_EMAIL') return 'test@example.com';
+        if (name === 'EMAIL_RETRY_DELAY_MS') return '100'; // Faster retry for testing
+        return defaultValue;
+      });
+      vi.mocked(nodemailer.createTransport).mockImplementation(() => mockTransporter as any);
 
-      const emailId = await emailService.sendEmail({
+      const prodEmailService = new EmailService();
+      
+      // Wait for initialization
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      const emailId = await prodEmailService.sendEmail({
         to: 'test@example.com',
         subject: 'Retry Test',
         text: 'Testing retry mechanism'
@@ -144,15 +177,19 @@ describe('Email Service Integration Tests', () => {
 
       expect(emailId).toBeDefined();
 
-      // Wait for retry to complete
-      await new Promise(resolve => setTimeout(resolve, 6000));
+      // Wait for retries to complete (100ms retry delay * 2 retries + buffer)
+      await new Promise(resolve => setTimeout(resolve, 500));
 
-      const status = emailService.getDeliveryStatus(emailId);
+      const status = prodEmailService.getDeliveryStatus(emailId);
       expect(status?.status).toBe('sent');
       expect(status?.attempts).toBe(3);
+      
+      prodEmailService.cleanup();
     });
 
     test('should handle email sending failure after max retries', async () => {
+      const nodemailer = await import('nodemailer');
+      
       // Mock persistent email sending failure
       const mockSendMail = vi.fn().mockRejectedValue(new Error('Persistent SMTP failure'));
       const mockTransporter = {
@@ -160,14 +197,31 @@ describe('Email Service Integration Tests', () => {
         verify: vi.fn().mockResolvedValue(true)
       };
       
-      vi.mocked(require('nodemailer').createTransport).mockReturnValue(mockTransporter);
+      // Set up mocks before creating service
+      vi.mocked(isDevelopment).mockReturnValue(false);
+      vi.mocked(getSecret).mockResolvedValue('test-secret');
+      vi.mocked(getOptionalEnvVar).mockImplementation((name: string, defaultValue?: string) => {
+        if (name === 'TENCENT_SES_SMTP_HOST') return 'smtp.tencentcloud.com';
+        if (name === 'TENCENT_SES_SMTP_PORT') return '587';
+        if (name === 'TENCENT_SES_FROM_EMAIL') return 'test@example.com';
+        if (name === 'EMAIL_RETRY_DELAY_MS') return '100'; // Faster retry for testing
+        return defaultValue;
+      });
+      vi.mocked(nodemailer.createTransport).mockImplementation(() => mockTransporter as any);
 
-      await expect(emailService.sendEmail({
+      const prodEmailService = new EmailService();
+      
+      // Wait for initialization
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      await expect(prodEmailService.sendEmail({
         to: 'test@example.com',
         subject: 'Failure Test',
         text: 'Testing failure handling'
       })).rejects.toThrow('Email sending failed after 3 attempts');
-    });
+      
+      prodEmailService.cleanup();
+    }, 10000); // Increase timeout to allow for retries
   });
 
   describe('Rate Limiting Integration', () => {
