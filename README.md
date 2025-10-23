@@ -1,45 +1,107 @@
 # RIV MVP
 
-A Minimum Viable Product (MVP) project for RIV.
+A China-accessible file sharing application built with Next.js.
 
-## Overview
-
-This repository contains the initial setup for the RIV MVP project. This is a starting point for building out the core functionality and features.
-
-## Getting Started
+## Development Setup
 
 ### Prerequisites
+- Node.js 18+ and npm 8+
+- Docker and Docker Compose
+- Git
 
-- [List any prerequisites here]
-- [Add installation instructions]
+### Quick Start
 
-### Installation
-
-1. Clone the repository:
+1. **Clone and install dependencies:**
    ```bash
-   git clone https://github.com/corporal-clegg87/riv-mvp.git
+   git clone <repository-url>
    cd riv-mvp
+   npm install
    ```
 
-2. [Add setup instructions]
+2. **Set up environment variables:**
+   ```bash
+   cp .env.local.example .env.local
+   # Edit .env.local with your actual values
+   ```
 
-### Usage
+3. **Start development services:**
+   ```bash
+   chmod +x scripts/dev-setup.sh
+   ./scripts/dev-setup.sh
+   ```
 
-[Add usage instructions]
+4. **Start the development server:**
+   ```bash
+   npm run dev
+   ```
 
-## Project Structure
+### Development Services
 
+The development environment includes:
+- **Redis** (localhost:6379) - For OTP storage and session management
+- **MailHog** (localhost:8025) - For email testing and development
+
+### Useful Commands
+
+```bash
+# Start development services
+./scripts/dev-setup.sh
+
+# Stop development services
+docker-compose -f docker-compose.dev.yml down
+
+# Run tests
+npm test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Type checking
+npm run type-check
 ```
-riv-mvp/
-├── README.md
-├── LICENSE
-├── .gitignore
-└── [Add other directories as needed]
-```
 
-## Development
+### Environment Variables
 
-[Add development instructions]
+See `.env.local.example` for all required environment variables.
+Key variables for development:
+- `JWT_SECRET` - Generate with: `openssl rand -base64 32`
+- `REDIS_URL` - Set to `redis://localhost:6379` for local development
+- `TENCENT_SES_*` - Your Tencent Cloud SES credentials
+
+## Authentication System
+
+### Architecture Overview
+
+The authentication system uses a stateless JWT-based approach with email OTP verification:
+
+1. **User requests OTP** → System generates 6-digit code and stores in Redis
+2. **User submits OTP** → System validates code and issues JWT tokens
+3. **Session management** → Access and refresh tokens for secure API access
+4. **Token validation** → Middleware validates tokens on protected routes
+
+### Security Features
+
+- **JWT Tokens**: Stateless authentication with configurable expiration
+- **OTP Storage**: Redis-backed temporary storage with automatic cleanup
+- **Email Security**: Tencent Cloud SES for China-accessible email delivery
+- **Environment Isolation**: Separate dev/prod configurations
+- **Secret Management**: Environment-based secret handling with validation
+
+### Data Protection
+
+- **No Password Storage**: Email-only authentication eliminates password risks
+- **Temporary OTPs**: Codes expire automatically (5-10 minutes)
+- **Secure Tokens**: JWT secrets are environment-specific and validated
+- **China Compliance**: Uses Tencent Cloud services for regional accessibility
+
+### Development vs Production
+
+| Component | Development | Production |
+|-----------|-------------|------------|
+| Email | MailHog (localhost:8025) | Tencent Cloud SES |
+| Storage | Redis (localhost:6379) | Redis Cloud/Managed |
+| Secrets | Environment variables | Tencent Cloud Secrets Manager |
+| Monitoring | Console logs | Structured logging + metrics |
 
 ## Contributing
 
