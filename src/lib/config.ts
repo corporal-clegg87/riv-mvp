@@ -77,6 +77,14 @@ export function validateRequiredEnvVars(): { valid: boolean; errors: string[] } 
   const errors: string[] = [];
   
   try {
+    // Validate Tencent Cloud configuration for production
+    if (isProduction()) {
+      const tencentConfig = getTencentCloudConfig();
+      if (!tencentConfig.valid) {
+        errors.push(...tencentConfig.errors);
+      }
+    }
+    
     // Validate JWT secret length
     const jwtSecret = getOptionalEnvVar('JWT_SECRET');
     if (jwtSecret && jwtSecret.length < 32) {
@@ -103,6 +111,62 @@ export function validateRequiredEnvVars(): { valid: boolean; errors: string[] } 
     return {
       valid: false,
       errors: [`Environment validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`]
+    };
+  }
+}
+
+// Tencent Cloud configuration validation
+export function getTencentCloudConfig(): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+  
+  try {
+    const secretId = getOptionalEnvVar('TENCENT_CLOUD_SECRET_ID');
+    if (!secretId) {
+      errors.push('TENCENT_CLOUD_SECRET_ID is required in production');
+    }
+    
+    const secretKey = getOptionalEnvVar('TENCENT_CLOUD_SECRET_KEY');
+    if (!secretKey) {
+      errors.push('TENCENT_CLOUD_SECRET_KEY is required in production');
+    }
+    
+    const region = getOptionalEnvVar('TENCENT_CLOUD_REGION', 'ap-beijing');
+    if (!region || region.length < 3) {
+      errors.push('TENCENT_CLOUD_REGION must be a valid region code');
+    }
+    
+    return {
+      valid: errors.length === 0,
+      errors
+    };
+  } catch (error) {
+    return {
+      valid: false,
+      errors: [`Tencent Cloud configuration validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`]
+    };
+  }
+}
+
+// Validate secrets configuration
+export function validateSecretsConfig(): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+  
+  try {
+    if (isProduction()) {
+      const tencentConfig = getTencentCloudConfig();
+      if (!tencentConfig.valid) {
+        errors.push(...tencentConfig.errors);
+      }
+    }
+    
+    return {
+      valid: errors.length === 0,
+      errors
+    };
+  } catch (error) {
+    return {
+      valid: false,
+      errors: [`Secrets configuration validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`]
     };
   }
 }
