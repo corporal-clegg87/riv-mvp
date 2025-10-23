@@ -6,10 +6,42 @@
 import { randomInt } from 'crypto';
 import { redisService } from './redis';
 import { logger } from './logger';
+import { getOptionalEnvVar } from './config';
 
-const OTP_EXPIRY_SECONDS = 600; // 10 minutes
-const OTP_PREFIX = 'otp:';
+const OTP_EXPIRY_SECONDS = parseInt(getOptionalEnvVar('OTP_EXPIRY_SECONDS', '600')); // 10 minutes default
+const OTP_PREFIX = getOptionalEnvVar('OTP_PREFIX', 'otp:');
 
+/**
+ * One-Time Password (OTP) Service
+ * 
+ * Provides secure OTP generation, storage, and verification functionality with Redis-backed persistence.
+ * OTPs are cryptographically secure, have configurable expiration times, and are single-use only.
+ * 
+ * Features:
+ * - Cryptographically secure 6-digit OTP generation
+ * - Redis-backed storage with automatic expiration
+ * - One-time use semantics (OTP deleted after successful verification)
+ * - Graceful fallback to in-memory storage when Redis is unavailable
+ * - Comprehensive logging and error handling
+ * 
+ * Usage:
+ * ```typescript
+ * import { generateOTP, storeOTP, verifyOTP } from './otp';
+ * 
+ * // Generate and store OTP
+ * const otp = generateOTP();
+ * await storeOTP('user@example.com', otp);
+ * 
+ * // Verify OTP
+ * const isValid = await verifyOTP('user@example.com', userInput);
+ * ```
+ * 
+ * Configuration:
+ * - OTP_EXPIRY_SECONDS: OTP expiration time in seconds (default: 600)
+ * - OTP_PREFIX: Redis key prefix for OTP storage (default: 'otp:')
+ * 
+ * @class OTPService
+ */
 class OTPService {
   /**
    * Generates a cryptographically secure 6-digit OTP
