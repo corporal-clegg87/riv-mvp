@@ -7,8 +7,7 @@ import {
   getOptionalEnvVar,
   validateEnvVar,
   validateRequiredEnvVars,
-  getTencentCloudConfig,
-  validateSecretsConfig
+  getTencentCloudConfig
 } from '../../src/lib/config';
 
 describe('config utilities', () => {
@@ -180,8 +179,17 @@ describe('config utilities', () => {
   });
 
   describe('getTencentCloudConfig', () => {
-    it('validates required Tencent Cloud credentials', () => {
-      vi.unstubAllEnvs();
+    it('passes validation in development environment', () => {
+      vi.stubEnv('NODE_ENV', 'development');
+      
+      const result = getTencentCloudConfig();
+      expect(result.valid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+    });
+
+    it('validates required Tencent Cloud credentials in production', () => {
+      vi.stubEnv('NODE_ENV', 'production');
+      // Don't set Tencent Cloud credentials to test validation
       delete (process.env as any).TENCENT_CLOUD_SECRET_ID;
       delete (process.env as any).TENCENT_CLOUD_SECRET_KEY;
       
@@ -191,17 +199,19 @@ describe('config utilities', () => {
       expect(result.errors).toContain('TENCENT_CLOUD_SECRET_KEY is required in production');
     });
 
-    it('validates region format', () => {
+    it('validates region format in production', () => {
+      vi.stubEnv('NODE_ENV', 'production');
       vi.stubEnv('TENCENT_CLOUD_SECRET_ID', 'test-id');
       vi.stubEnv('TENCENT_CLOUD_SECRET_KEY', 'test-key');
-      vi.stubEnv('TENCENT_CLOUD_REGION', 'ab'); // Too short
+      vi.stubEnv('TENCENT_CLOUD_REGION', 'invalid-region');
       
       const result = getTencentCloudConfig();
       expect(result.valid).toBe(false);
-      expect(result.errors).toContain('TENCENT_CLOUD_REGION must be a valid region code');
+      expect(result.errors).toContain('TENCENT_CLOUD_REGION must be a valid Tencent Cloud region code');
     });
 
-    it('uses default region when not specified', () => {
+    it('uses default region when not specified in production', () => {
+      vi.stubEnv('NODE_ENV', 'production');
       vi.stubEnv('TENCENT_CLOUD_SECRET_ID', 'test-id');
       vi.stubEnv('TENCENT_CLOUD_SECRET_KEY', 'test-key');
       // Don't set TENCENT_CLOUD_REGION to test default behavior
@@ -211,7 +221,8 @@ describe('config utilities', () => {
       expect(result.errors).toHaveLength(0);
     });
 
-    it('passes validation with valid credentials', () => {
+    it('passes validation with valid credentials in production', () => {
+      vi.stubEnv('NODE_ENV', 'production');
       vi.stubEnv('TENCENT_CLOUD_SECRET_ID', 'test-id');
       vi.stubEnv('TENCENT_CLOUD_SECRET_KEY', 'test-key');
       vi.stubEnv('TENCENT_CLOUD_REGION', 'ap-beijing');
@@ -222,35 +233,4 @@ describe('config utilities', () => {
     });
   });
 
-  describe('validateSecretsConfig', () => {
-    it('validates Tencent Cloud config in production', () => {
-      vi.stubEnv('NODE_ENV', 'production');
-      // Don't set Tencent Cloud credentials to test validation
-      delete (process.env as any).TENCENT_CLOUD_SECRET_ID;
-      delete (process.env as any).TENCENT_CLOUD_SECRET_KEY;
-      
-      const result = validateSecretsConfig();
-      expect(result.valid).toBe(false);
-      expect(result.errors.length).toBeGreaterThan(0);
-    });
-
-    it('passes validation in development', () => {
-      vi.stubEnv('NODE_ENV', 'development');
-      
-      const result = validateSecretsConfig();
-      expect(result.valid).toBe(true);
-      expect(result.errors).toHaveLength(0);
-    });
-
-    it('passes validation in production with valid credentials', () => {
-      vi.stubEnv('NODE_ENV', 'production');
-      vi.stubEnv('TENCENT_CLOUD_SECRET_ID', 'test-id');
-      vi.stubEnv('TENCENT_CLOUD_SECRET_KEY', 'test-key');
-      vi.stubEnv('TENCENT_CLOUD_REGION', 'ap-beijing');
-      
-      const result = validateSecretsConfig();
-      expect(result.valid).toBe(true);
-      expect(result.errors).toHaveLength(0);
-    });
-  });
 });

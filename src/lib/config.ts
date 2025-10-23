@@ -115,11 +115,19 @@ export function validateRequiredEnvVars(): { valid: boolean; errors: string[] } 
   }
 }
 
-// Tencent Cloud configuration validation
+/**
+ * Validates Tencent Cloud configuration for production environment
+ * @returns Object containing validation result and error messages
+ */
 export function getTencentCloudConfig(): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
   
   try {
+    // Only validate in production environment
+    if (!isProduction()) {
+      return { valid: true, errors: [] };
+    }
+    
     const secretId = getOptionalEnvVar('TENCENT_CLOUD_SECRET_ID');
     if (!secretId) {
       errors.push('TENCENT_CLOUD_SECRET_ID is required in production');
@@ -131,8 +139,8 @@ export function getTencentCloudConfig(): { valid: boolean; errors: string[] } {
     }
     
     const region = getOptionalEnvVar('TENCENT_CLOUD_REGION', 'ap-beijing');
-    if (!region || region.length < 3) {
-      errors.push('TENCENT_CLOUD_REGION must be a valid region code');
+    if (!region || !isValidTencentCloudRegion(region)) {
+      errors.push('TENCENT_CLOUD_REGION must be a valid Tencent Cloud region code');
     }
     
     return {
@@ -147,26 +155,30 @@ export function getTencentCloudConfig(): { valid: boolean; errors: string[] } {
   }
 }
 
-// Validate secrets configuration
-export function validateSecretsConfig(): { valid: boolean; errors: string[] } {
-  const errors: string[] = [];
+/**
+ * Validates if a region code is a valid Tencent Cloud region
+ * @param region - The region code to validate
+ * @returns True if the region is valid, false otherwise
+ */
+function isValidTencentCloudRegion(region: string): boolean {
+  const validRegions = [
+    'ap-beijing',
+    'ap-shanghai', 
+    'ap-guangzhou',
+    'ap-chengdu',
+    'ap-hongkong',
+    'ap-singapore',
+    'ap-tokyo',
+    'ap-mumbai',
+    'ap-bangkok',
+    'ap-seoul',
+    'ap-nanjing',
+    'ap-chongqing',
+    'na-siliconvalley',
+    'na-ashburn',
+    'eu-frankfurt'
+  ];
   
-  try {
-    if (isProduction()) {
-      const tencentConfig = getTencentCloudConfig();
-      if (!tencentConfig.valid) {
-        errors.push(...tencentConfig.errors);
-      }
-    }
-    
-    return {
-      valid: errors.length === 0,
-      errors
-    };
-  } catch (error) {
-    return {
-      valid: false,
-      errors: [`Secrets configuration validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`]
-    };
-  }
+  return validRegions.includes(region);
 }
+
