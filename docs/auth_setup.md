@@ -81,7 +81,7 @@ Implement stateless JWT authentication with email OTP using Tencent Cloud SES, w
 
 **Test:** OTP stores/retrieves correctly, fallback to memory works
 
-### Step 2.4: JWT Session Management
+CONTINUE HERE ### Step 2.4: JWT Session Management
 **Commit:** `feat: implement JWT session management`
 
 **Files to create:**
