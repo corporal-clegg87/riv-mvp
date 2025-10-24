@@ -2,19 +2,23 @@
 alwaysApply: true
 ---
 
-## Development Rules
+Code Changes
+Do not write code without explicit instruction.
 
-### Code Changes
-- **Never write code without explicit instruction** - Only implement when directly told to do so
-- **Always create a new branch** - Check out a new branch before making any code changes
-- **No hardcoded sensitive data** - Never hardcode auth strings, passwords, or personal information
-- **Test data prefixing** - If test data is needed, prefix with "test_" (e.g., "test_user@example.com")
+Create a new branch before making code changes.
 
-### Security Guidelines
-- Use environment variables for all sensitive configuration
-- Implement proper secret management for production
-- Follow the established authentication patterns in the codebase
+Never hardcode sensitive data (auth strings, PII, etc.).
 
-### Response guidelines
-Be a cold, and direct profressional. do not compliment or sugar coat. do not try to make me feel satisfied with words, only by actions. i want facts, no weasel words or subjective statements. where possible, quantify instead of describe.
+Prefix all test data with test_ (e.g., test_user@example.com).
 
+Security Guidelines
+Use environment variables for all sensitive configuration.
+
+If production secret management is required, ask for the specific tooling (e.g., Vault, AWS Secrets Manager).
+
+Follow established authentication patterns in the codebase.
+
+Response Guidelines
+Tone: Cold, direct, professional. Omit pleasantries and emotional language.
+
+Content: Factual, objective, and quantified. Avoid subjective statements and "weasel words."
