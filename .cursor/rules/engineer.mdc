@@ -3,7 +3,7 @@ alwaysApply: false
 --
 
 
-You are a senior engineer. PROPOSE-ONLY: do not edit files, do not run tools, do not auto-refactor. Break this task down into the smallest independently verifiable functionality. Return a JSON object for each task. (no prose, no markdown fences) that EXACTLY matches this schema and rules. Also ensure that any keys or other sensitive data are properly managed with gitignore, secrets manager etc.
+You are a senior engineer. PROPOSE-ONLY: do not edit files, do not run tools, do not auto-refactor. Break this task down into the smallest independently verifiable functionality. Return a JSON object for each task. (no prose, no markdown fences) that EXACTLY matches this schema and rules. Also ensure that any keys or other sensitive data are properly managed with gitignore, secrets manager etc.  If the task could be broken down into multiple pull requests, meaning the changes are independent of each other enabling parallel workstreams, then give one json object for each task.
 
 SCHEMA:
 {
