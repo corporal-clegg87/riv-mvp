@@ -130,6 +130,68 @@ class RedisService {
     this.memoryCache.delete(key);
   }
 
+  public async getTTL(key: string): Promise<number | null> {
+    await this.ensureInitialized();
+
+    if (this.isRedisAvailable && this.client) {
+      try {
+        const ttl = await this.client.ttl(key);
+        return ttl > 0 ? ttl : null;
+      } catch (error) {
+        logger.error('Redis TTL failed, falling back to memory', { key, error: error instanceof Error ? error.message : 'Unknown' });
+        this.isRedisAvailable = false;
+      }
+    }
+
+    // Fallback to memory cache
+    const entry = this.memoryCache.get(key);
+    if (!entry) return null;
+    
+    const remaining = Math.max(0, Math.floor((entry.expiresAt - Date.now()) / 1000));
+    return remaining > 0 ? remaining : null;
+  }
+
+  public async scanKeys(pattern: string): Promise<string[]> {
+    await this.ensureInitialized();
+
+    if (this.isRedisAvailable && this.client) {
+      try {
+        const keys: string[] = [];
+        let cursor = 0;
+        
+        do {
+          const result = await this.client.scan(cursor, {
+            MATCH: pattern,
+            COUNT: 100
+          });
+          cursor = result.cursor;
+          keys.push(...result.keys);
+        } while (cursor !== 0);
+        
+        return keys;
+      } catch (error) {
+        logger.error('Redis SCAN failed, falling back to memory', { pattern, error: error instanceof Error ? error.message : 'Unknown' });
+        this.isRedisAvailable = false;
+      }
+    }
+
+    // Fallback to memory cache - scan memory keys
+    const keys: string[] = [];
+    const regex = new RegExp(pattern.replace(/\*/g, '.*'));
+    
+    for (const key of this.memoryCache.keys()) {
+      if (regex.test(key)) {
+        // Check if key is still valid (not expired)
+        const entry = this.memoryCache.get(key);
+        if (entry && Date.now() <= entry.expiresAt) {
+          keys.push(key);
+        }
+      }
+    }
+    
+    return keys;
+  }
+
   public isConnected(): boolean {
     return this.isRedisAvailable;
   }

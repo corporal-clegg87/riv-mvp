@@ -185,12 +185,18 @@ class RateLimiterService {
   }
 
   /**
-   * Gets TTL for a Redis key (simplified implementation)
+   * Gets TTL for a Redis key
    */
   private async getRedisTTL(key: string): Promise<number | null> {
-    // This would need to be implemented based on your Redis client capabilities
-    // For now, return null to indicate unknown TTL
-    return null;
+    try {
+      return await redisService.getTTL(key);
+    } catch (error) {
+      logger.error('Failed to get Redis TTL', { 
+        key, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      });
+      return null;
+    }
   }
 
   /**

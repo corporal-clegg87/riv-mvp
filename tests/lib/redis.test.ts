@@ -6,6 +6,8 @@ const mockRedisClient = {
   get: vi.fn(),
   setEx: vi.fn(),
   del: vi.fn(),
+  ttl: vi.fn(),
+  scan: vi.fn(),
   quit: vi.fn(),
   on: vi.fn()
 };
@@ -15,9 +17,8 @@ vi.mock('redis', () => ({
 }));
 
 // Mock config
-const mockGetConfig = vi.fn();
 vi.mock('../../src/lib/config', () => ({
-  getConfig: mockGetConfig
+  getConfig: vi.fn()
 }));
 
 // Mock logger
@@ -28,6 +29,9 @@ vi.mock('../../src/lib/logger', () => ({
     error: vi.fn()
   }
 }));
+
+// Import after mocks
+import { redisService } from '../../src/lib/redis';
 
 describe('Redis Service', () => {
   beforeEach(() => {
@@ -203,21 +207,59 @@ describe('Redis Service', () => {
 
   describe('Connection Status', () => {
     it('should return connection status', async () => {
-      // Mock config to return Redis URL
-      mockGetConfig.mockReturnValue({
-        nodeEnv: 'development',
-        isDevelopment: true,
-        isProduction: false,
-        appUrl: 'http://localhost:3000',
-        redisUrl: 'redis://localhost:6379'
-      });
-      
       // Clear module cache and import fresh
       vi.resetModules();
       const { isRedisConnected } = await import('../../src/lib/redis');
       
       const connected = isRedisConnected();
       expect(typeof connected).toBe('boolean');
+    });
+  });
+
+  describe('SCAN Operations', () => {
+    it('should scan keys with pattern when Redis is connected', async () => {
+      mockRedisClient.scan.mockResolvedValue({
+        cursor: 0,
+        keys: ['session:key1', 'session:key2', 'session:key3']
+      });
+      
+      const keys = await redisService.scanKeys('session:*');
+      
+      expect(keys).toEqual(['session:key1', 'session:key2', 'session:key3']);
+      expect(mockRedisClient.scan).toHaveBeenCalledWith(0, {
+        MATCH: 'session:*',
+        COUNT: 100
+      });
+    });
+
+    it('should handle multiple SCAN iterations', async () => {
+      mockRedisClient.scan
+        .mockResolvedValueOnce({
+          cursor: 1,
+          keys: ['session:key1', 'session:key2']
+        })
+        .mockResolvedValueOnce({
+          cursor: 0,
+          keys: ['session:key3']
+        });
+      
+      const keys = await redisService.scanKeys('session:*');
+      
+      expect(keys).toEqual(['session:key1', 'session:key2', 'session:key3']);
+      expect(mockRedisClient.scan).toHaveBeenCalledTimes(2);
+    });
+
+    it('should fallback to memory cache when Redis fails', async () => {
+      mockRedisClient.scan.mockRejectedValue(new Error('Redis connection failed'));
+      
+      // Add some keys to memory cache
+      await redisService.set('session:key1', 'value1', 3600);
+      await redisService.set('session:key2', 'value2', 3600);
+      await redisService.set('other:key', 'value3', 3600);
+      
+      const keys = await redisService.scanKeys('session:*');
+      
+      expect(keys).toEqual(['session:key1', 'session:key2']);
     });
   });
 });

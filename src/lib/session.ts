@@ -289,12 +289,18 @@ class SessionService {
    * @returns Promise that resolves to array of session keys
    */
   private async getAllSessionKeys(): Promise<string[]> {
-    // This is a simplified implementation
-    // In production, use Redis SCAN for better performance with large datasets
     try {
-      // For now, return empty array as we don't have direct access to Redis keys
-      // This would need to be implemented based on your Redis client capabilities
-      return [];
+      // Use Redis SCAN to find all session keys with the session prefix
+      const sessionPattern = `${SESSION_PREFIX}*`;
+      const keys = await redisService.scanKeys(sessionPattern);
+      
+      logger.debug('Retrieved session keys', { 
+        count: keys.length,
+        pattern: sessionPattern,
+        redisConnected: redisService.isConnected()
+      });
+      
+      return keys;
     } catch (error) {
       logger.error('Failed to get session keys', { 
         error: error instanceof Error ? error.message : 'Unknown error' 
