@@ -1,0 +1,95 @@
+{
+  "config": {
+    "baseBranch": "main",
+    "branchPrefixes": {
+      "feature": "feature",
+      "fix": "fix",
+      "refactor": "refactor"
+    },
+    "commitMessages": {
+      "test": "test: Add failing test for {behavior}",
+      "feat": "feat: Implement {behavior}",
+      "refactor": "refactor: Clean up {module}"
+    }
+  },
+  "workflow": [
+    {
+      "id": "W1.0_SETUP",
+      "steps": [
+        "Confirm task details and requirements. If unclear, STOP and ask.",
+        "Run `git pull origin {config.baseBranch}`.",
+        "Run `git worktree prune`."
+      ]
+    },
+    {
+      "id": "W1.1_WORKTREE",
+      "instruction": "Create a new worktree and branch. Example: `git worktree add -b {config.branchPrefixes.feature}/{task_name} ../{task_name}-worktree {config.baseBranch}`"
+    },
+    {
+      "id": "W1.2_CHDIR",
+      "instruction": "Change directory to the new worktree. Example: `cd ../{task_name}-worktree`"
+    },
+    {
+      "id": "W2.0_TDD_LOOP",
+      "description": "Repeat this Red-Green-Refactor loop for each piece of functionality.",
+      "loop": [
+        {
+          "id": "W2.1_RED",
+          "instruction": "Write one minimal failing test for a specific behavior."
+        },
+        {
+          "id": "W2.2_VERIFY_RED",
+          "instruction": "Run *only* the new test. It MUST fail for the expected reason."
+        },
+        {
+          "id": "W2.3_PRE_COMMIT_CHECK",
+          "instruction": "Run all tests related to files being changed. All existing tests MUST pass."
+        },
+        {
+          "id": "W2.4_COMMIT_TEST",
+          "instruction": "Commit the failing test. `git commit -m \"{config.commitMessages.test}\"`"
+        },
+        {
+          "id": "W2.5_GREEN",
+          "instruction": "Write the *minimum* code required to pass the new test."
+        },
+        {
+          "id": "W2.6_VERIFY_GREEN",
+          "instruction": "Run related tests. All tests MUST pass."
+        },
+        {
+          "id": "W2.7_COMMIT_CODE",
+          "instruction": "Commit the passing code. `git commit -m \"{config.commitMessages.feat}\"`"
+        },
+        {
+          "id": "W2.8_REFACTOR",
+          "instruction": "(Optional) Refactor code for quality. Do not change behavior."
+        },
+        {
+          "id": "W2.9_VERIFY_REFACTOR",
+          "instruction": "Run tests again. All tests MUST pass."
+        },
+        {
+          "id": "W2.10_COMMIT_REFACTOR",
+          "instruction": "If refactored, commit. `git commit -m \"{config.commitMessages.refactor}\"`"
+        }
+      ]
+    },
+    {
+      "id": "W3.0_COMPLETION",
+      "steps": [
+        "Run the FULL test suite (unit, integration, etc.). All tests MUST pass.",
+        "Push the branch to remote: `git push origin HEAD`"
+      ]
+    },
+    {
+      "id": "W4.0_REVIEW",
+      "instruction": "STOP. DO NOT MERGE. Notify human for review."
+    }
+  ],
+  "global_rules": [
+    "If any requirement is ambiguous, STOP and ask before coding.",
+    "If you make a logical assumption, state it and ask for confirmation.",
+    "If you are blocked or tests fail unexpectedly, STOP and report the issue."
+  ]
+}
