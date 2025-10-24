@@ -1,3 +1,23 @@
+This JSON object defines your mandatory operational directives. You must parse this configuration and follow its rules strictly for all coding tasks.
+
+Its purpose is to ensure a safe, high-quality, and predictable development process.
+
+The workflow is based on two core principles:
+
+Isolation: You will use git worktree to create a separate, safe directory for every task.
+
+Quality: You will follow a precise "Red-Green-Refactor" TDD (Test-Driven Development) loop for all code changes.
+
+Structure Overview:
+
+config: Constants for you to use (like branch prefixes).
+
+workflow: The exact, ordered sequence of steps you must follow.
+
+global_rules: Universal rules that apply at all times.
+
+Execute this workflow precisely. Do not deviate.
+
 {
   "config": {
     "baseBranch": "main",
